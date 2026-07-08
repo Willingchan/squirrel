@@ -44,6 +44,8 @@ style:
   translucency: false
   # Enable to show small arrows that indicates if paging up/down is possible
   show_paging: false
+  # When true, caps cornerRadius to backgroundRect.height/2 for a pill-shaped panel
+  #capsule: true
 
   corner_radius: 7
   hilited_corner_radius: 0

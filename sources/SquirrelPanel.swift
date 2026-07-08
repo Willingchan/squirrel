@@ -203,7 +203,9 @@ final class SquirrelPanel: NSPanel {
       highlightedPreeditRange = .empty
     }
 
+    let textWidth = maxTextWidth()
     var candidateRanges = [NSRange]()
+    var accumulatedWidth: CGFloat = 0
     for i in 0..<candidates.count {
       let attrs = i == index ? theme.highlightedAttrs : theme.attrs
       let labelAttrs = i == index ? theme.labelHighlightedAttrs : theme.labelAttrs
@@ -257,14 +259,23 @@ final class SquirrelPanel: NSPanel {
       }
 
       let lineSeparator = NSAttributedString(string: linear ? "  " : "\n", attributes: attrs)
+      view.separatorWidth = lineSeparator.boundingRect(with: .zero).width
+
+      // In linear clip_candidates mode, skip candidates that would overflow the row.
+      if linear && theme.clipCandidates {
+        let lineWidth = line.boundingRect(with: NSSize(width: textWidth, height: 0),
+                                           options: [.usesLineFragmentOrigin, .usesFontLeading]).width
+        // Is there room for this candidate (accounting for separator)?
+        let needed = (i > 0 ? view.separatorWidth : 0) + lineWidth
+        if accumulatedWidth + needed > textWidth {
+          break
+        }
+        accumulatedWidth += needed
+      }
+
       if i > 0 {
         text.append(lineSeparator)
       }
-      let str = lineSeparator.mutableCopy() as! NSMutableAttributedString
-      if vertical {
-        str.addAttribute(.verticalGlyphForm, value: 1, range: NSRange(location: 0, length: str.length))
-      }
-      view.separatorWidth = str.boundingRect(with: .zero).width
 
       let paragraphStyleCandidate = (i == 0 ? theme.firstParagraphStyle : theme.paragraphStyle).mutableCopy() as! NSMutableParagraphStyle
       if linear {
@@ -286,7 +297,6 @@ final class SquirrelPanel: NSPanel {
     view.textView.setLayoutOrientation(vertical ? .vertical : .horizontal)
 
     // Force TextKit 2 layout before measuring wrapped text and highlight bounds.
-    let textWidth = maxTextWidth()
     let maxTextHeight = vertical ? screenRect.width - theme.edgeInset.width * 2 : screenRect.height - theme.edgeInset.height * 2
     view.textContainer.size = NSSize(width: textWidth, height: maxTextHeight)
     view.textLayoutManager.ensureLayout(for: view.textLayoutManager.documentRange)

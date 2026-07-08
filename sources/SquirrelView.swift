@@ -210,7 +210,12 @@ final class SquirrelView: NSView {
     }
 
     NSBezierPath.defaultLineWidth = 0
-    backgroundPath = drawSmoothLines(rectVertex(of: backgroundRect), straightCorner: Set(), alpha: 0.3 * theme.cornerRadius, beta: 1.4 * theme.cornerRadius)
+    if theme.capsule {
+      let capsuleR = min(theme.cornerRadius, backgroundRect.height / 2)
+      backgroundPath = CGPath(roundedRect: backgroundRect, cornerWidth: capsuleR, cornerHeight: capsuleR, transform: nil)
+    } else {
+      backgroundPath = drawSmoothLines(rectVertex(of: backgroundRect), straightCorner: Set(), alpha: 0.3 * theme.cornerRadius, beta: 1.4 * theme.cornerRadius)
+    }
 
     self.layer?.sublayers = nil
     let backPath = backgroundPath?.mutableCopy()
@@ -656,22 +661,42 @@ private extension SquirrelView {
     let effectiveRadius = max(0, theme.hilitedCornerRadius + 2 * extraExpansion / theme.hilitedCornerRadius * max(0, theme.cornerRadius - theme.hilitedCornerRadius))
 
     if theme.linear, let highlightedTextRange = convert(range: highlightedRange) {
+      // In capsule mode with a single row, draw the highlighted background as a
+      // clean rounded rect so hilited_corner_radius and padding produce a pill.
+      if theme.capsule, !nearEmpty(backgroundRect) {
+        // Use multilineRects for correct per-candidate x/width and text-line
+        // y/height (both already include edgeInset and lineSpacing).  Apply
+        // padding on top so borderWidth only affects horizontal positioning
+        // and the highlighted pill height is independent of borderWidth.
+        let (_, bodyRect, _) = multilineRects(forRange: highlightedTextRange, extraSurounding: separatorWidth, bounds: outerBox)
+        var hlRect = bodyRect
+        hlRect.size.width += theme.hilitedPaddingHorizontal * 2
+        hlRect.origin.x -= theme.hilitedPaddingHorizontal
+        hlRect.size.height += theme.hilitedPaddingVertical * 2
+        hlRect.origin.y -= theme.hilitedPaddingVertical
+        let hlRadius = min(theme.hilitedCornerRadius, hlRect.height / 2)
+        let hlCGPath = CGPath(roundedRect: hlRect, cornerWidth: hlRadius, cornerHeight: hlRadius, transform: nil)
+        resultingPath = hlCGPath.mutableCopy()
+      } else {
       let (leadingRect, bodyRect, trailingRect) = multilineRects(forRange: highlightedTextRange, extraSurounding: separatorWidth, bounds: outerBox)
       var (highlightedPoints, highlightedPoints2, rightCorners, rightCorners2) = linearMultilineFor(body: bodyRect, leading: leadingRect, trailing: trailingRect)
 
       highlightedPoints = enlarge(vertex: highlightedPoints, by: extraExpansion)
       highlightedPoints = expand(vertex: highlightedPoints, innerBorder: innerBox, outerBorder: outerBox)
       rightCorners = removeCorner(highlightedPoints: highlightedPoints, rightCorners: rightCorners, containingRect: currentContainingRect)
+      highlightedPoints = expandVertex(highlightedPoints, dx: theme.hilitedPaddingHorizontal, dy: theme.hilitedPaddingVertical)
       resultingPath = drawSmoothLines(highlightedPoints, straightCorner: rightCorners, alpha: 0.3*effectiveRadius, beta: 1.4*effectiveRadius)?.mutableCopy()
 
       if highlightedPoints2.count > 0 {
         highlightedPoints2 = enlarge(vertex: highlightedPoints2, by: extraExpansion)
         highlightedPoints2 = expand(vertex: highlightedPoints2, innerBorder: innerBox, outerBorder: outerBox)
         rightCorners2 = removeCorner(highlightedPoints: highlightedPoints2, rightCorners: rightCorners2, containingRect: currentContainingRect)
+        highlightedPoints2 = expandVertex(highlightedPoints2, dx: theme.hilitedPaddingHorizontal, dy: theme.hilitedPaddingVertical)
         let highlightedPath2 = drawSmoothLines(highlightedPoints2, straightCorner: rightCorners2, alpha: 0.3*effectiveRadius, beta: 1.4*effectiveRadius)
         if let highlightedPath2 = highlightedPath2 {
           resultingPath?.addPath(highlightedPath2)
         }
+      }
       }
     } else if let highlightedTextRange = convert(range: highlightedRange) {
       var highlightedRect = self.contentRect(range: highlightedTextRange)
@@ -692,6 +717,10 @@ private extension SquirrelView {
           }
         }
 
+        highlightedRect.origin.x -= theme.hilitedPaddingHorizontal
+        highlightedRect.size.width += theme.hilitedPaddingHorizontal * 2
+        highlightedRect.origin.y -= theme.hilitedPaddingVertical
+        highlightedRect.size.height += theme.hilitedPaddingVertical * 2
         var highlightedPoints = rectVertex(of: highlightedRect)
         highlightedPoints = enlarge(vertex: highlightedPoints, by: extraExpansion)
         highlightedPoints = expand(vertex: highlightedPoints, innerBorder: innerBox, outerBorder: outerBox)
@@ -703,6 +732,20 @@ private extension SquirrelView {
       resultingPath = nil
     }
     return resultingPath
+  }
+
+
+  // Expand vertex polygon outward from its center by the given horizontal/vertical amounts.
+  func expandVertex(_ vertex: [NSPoint], dx: CGFloat, dy: CGFloat) -> [NSPoint] {
+    guard vertex.count >= 4, (dx != 0 || dy != 0) else { return vertex }
+    let cx = vertex.map(\.x).reduce(0, +) / CGFloat(vertex.count)
+    let cy = vertex.map(\.y).reduce(0, +) / CGFloat(vertex.count)
+    var result = vertex
+    for j in 0..<result.count {
+      if result[j].x < cx { result[j].x -= dx } else if result[j].x > cx { result[j].x += dx }
+      if result[j].y < cy { result[j].y -= dy } else if result[j].y > cy { result[j].y += dy }
+    }
+    return result
   }
 
   func carveInset(rect: NSRect) -> NSRect {
