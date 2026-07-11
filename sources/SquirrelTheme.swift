@@ -63,6 +63,7 @@ final class SquirrelTheme {
   private(set) var alpha: CGFloat = 1
   private(set) var hilitedPaddingVertical: CGFloat = 0
   private(set) var hilitedPaddingHorizontal: CGFloat = 0
+  private(set) var maxWidth: CGFloat = 0
 
   private(set) var translucency = false
   private(set) var mutualExclusive = false
@@ -72,7 +73,6 @@ final class SquirrelTheme {
   private(set) var inlineCandidate = false
   private(set) var showPaging = false
   private(set) var capsule = false
-  private(set) var clipCandidates = false
 
   private var fonts = [NSFont]()
   private var labelFonts = [NSFont]()
@@ -208,7 +208,6 @@ final class SquirrelTheme {
     memorizeSize ?= config.getBool("style/memorize_size")
     showPaging ?= config.getBool("style/show_paging")
     capsule ?= config.getBool("style/capsule")
-    clipCandidates ?= config.getBool("style/clip_candidates")
 
     statusMessageType ?= .init(rawValue: config.getString("style/status_message_type") ?? "")
     candidateFormat ?= config.getString("style/candidate_format")
@@ -225,6 +224,7 @@ final class SquirrelTheme {
     shadowSize ?= config.getDouble("style/shadow_size").map { max(0, $0) }
     hilitedPaddingVertical ?= config.getDouble("style/hilited_padding_vertical")
     hilitedPaddingHorizontal ?= config.getDouble("style/hilited_padding_horizontal")
+    maxWidth ?= config.getDouble("style/max_width")
 
     var fontName = config.getString("style/font_face")
     var fontSize = config.getDouble("style/font_point")
@@ -266,7 +266,6 @@ final class SquirrelTheme {
         mutualExclusive ?= config.getBool("\(prefix)/mutual_exclusive")
         showPaging ?= config.getBool("\(prefix)/show_paging")
         capsule ?= config.getBool("\(prefix)/capsule")
-        clipCandidates ?= config.getBool("\(prefix)/clip_candidates")
         candidateFormat ?= config.getString("\(prefix)/candidate_format")
         fontName ?= config.getString("\(prefix)/font_face")
         fontSize ?= config.getDouble("\(prefix)/font_point")
@@ -287,6 +286,7 @@ final class SquirrelTheme {
         shadowSize ?= config.getDouble("\(prefix)/shadow_size").map { max(0, $0) }
         hilitedPaddingVertical ?= config.getDouble("\(prefix)/hilited_padding_vertical")
         hilitedPaddingHorizontal ?= config.getDouble("\(prefix)/hilited_padding_horizontal")
+        maxWidth ?= config.getDouble("\(prefix)/max_width")
       }
     } else {
       available = false

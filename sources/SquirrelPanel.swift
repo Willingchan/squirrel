@@ -205,7 +205,10 @@ final class SquirrelPanel: NSPanel {
 
     let textWidth = maxTextWidth()
     var candidateRanges = [NSRange]()
-    var accumulatedWidth: CGFloat = 0
+    // Separator width only depends on "  " and the font — compute once.
+    let separatorWidth = NSAttributedString(string: linear ? "  " : "\n",
+                                             attributes: theme.attrs).boundingRect(with: .zero).width
+    view.separatorWidth = separatorWidth
     for i in 0..<candidates.count {
       let attrs = i == index ? theme.highlightedAttrs : theme.attrs
       let labelAttrs = i == index ? theme.labelHighlightedAttrs : theme.labelAttrs
@@ -259,19 +262,6 @@ final class SquirrelPanel: NSPanel {
       }
 
       let lineSeparator = NSAttributedString(string: linear ? "  " : "\n", attributes: attrs)
-      view.separatorWidth = lineSeparator.boundingRect(with: .zero).width
-
-      // In linear clip_candidates mode, skip candidates that would overflow the row.
-      if linear && theme.clipCandidates {
-        let lineWidth = line.boundingRect(with: NSSize(width: textWidth, height: 0),
-                                           options: [.usesLineFragmentOrigin, .usesFontLeading]).width
-        // Is there room for this candidate (accounting for separator)?
-        let needed = (i > 0 ? view.separatorWidth : 0) + lineWidth
-        if accumulatedWidth + needed > textWidth {
-          break
-        }
-        accumulatedWidth += needed
-      }
 
       if i > 0 {
         text.append(lineSeparator)
@@ -356,15 +346,25 @@ private extension SquirrelPanel {
 
   func maxTextWidth() -> CGFloat {
     let theme = view.currentTheme
+    let rawMaxWidth = theme.maxWidth
+    let screenDim = vertical ? screenRect.height : screenRect.width
+    let edgeDim = (vertical ? theme.edgeInset.height : theme.edgeInset.width) * 2
+
+    if rawMaxWidth < 0 {
+      // No limit: use full screen dimension.
+      return max(screenDim - edgeDim, 0)
+    } else if rawMaxWidth > 1 {
+      // Absolute points value.
+      return max(rawMaxWidth - edgeDim, 0)
+    } else if rawMaxWidth > 0 {
+      // Fraction of screen dimension (0 < x <= 1).
+      return max(screenDim * rawMaxWidth - edgeDim, 0)
+    }
+    // Default (rawMaxWidth == 0): existing formula.
     let font: NSFont = theme.font
     let fontScale = font.pointSize / 12
     let textWidthRatio = min(1, 1 / (vertical ? 4 : 3) + fontScale / 12)
-    let maxWidth = if vertical {
-      screenRect.height * textWidthRatio - theme.edgeInset.height * 2
-    } else {
-      screenRect.width * textWidthRatio - theme.edgeInset.width * 2
-    }
-    return maxWidth
+    return max(screenDim * textWidthRatio - edgeDim, 0)
   }
 
   // swiftlint:disable:next cyclomatic_complexity

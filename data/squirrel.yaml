@@ -47,6 +47,10 @@ style:
   # When true, caps cornerRadius to backgroundRect.height/2 for a pill-shaped panel
   #capsule: true
 
+  # Maximum width of the candidate panel. 0 = automatic (default formula);
+  # 0 < x <= 1 = fraction of screen width; x > 1 = absolute points; negative = no limit.
+  #max_width: 0
+
   corner_radius: 7
   hilited_corner_radius: 0
   border_height: -2
